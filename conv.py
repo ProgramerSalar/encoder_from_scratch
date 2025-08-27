@@ -1,0 +1,99 @@
+import torch 
+from torch import nn 
+from typing import Union
+from timm.layers import trunc_normal_
+
+
+class CausalConv3d(nn.Module):
+
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size: Union[int, tuple[int, int, int]] = 3,
+                 stride: Union[int, tuple[int, int, int]] = 1,
+                 padding = 0,
+                 pad_mode = 'constant',
+                 **kwargs
+                 ):
+        
+        super().__init__()
+        self.padding = padding
+        self.dilation = kwargs.pop('dilation', 1)
+        self.pad_mode = pad_mode
+
+        kernel_size = (kernel_size,) * 3 if isinstance(kernel_size, int) else kernel_size
+        stride = (stride,)*3 if isinstance(stride, int) else stride
+        self.time_kernel_size, self.height_kernel_size, self.width_kernel_size = kernel_size
+
+
+        # padding of conv 
+        self.time_pad = self.dilation * (self.time_kernel_size - 1) # 1 * (3 - 1) => 2
+        self.height_pad = self.height_kernel_size // 2  # ≈ 1 
+        self.width_pad = self.width_kernel_size // 2    # ≈ 1
+
+        # (1, 1, 1, 1, 2, 0)
+        self.time_causal_padding = (self.width_pad, self.width_pad, self.height_pad, self.height_pad, self.time_pad, 0)
+
+
+        self.conv = nn.Conv3d(in_channels=in_channels,
+                              out_channels=out_channels,
+                              kernel_size=kernel_size,
+                              stride=stride,
+                              padding=padding,
+                              dilation=self.dilation,
+                              **kwargs)
+        
+    
+    def _init_weights(self, m):
+        if isinstance(m, (nn.Linear, nn.Conv2d, nn.Conv3d)):
+            trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
+        elif isinstance(m, (nn.LayerNorm, nn.GroupNorm)):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+
+
+
+    def forward(self, 
+                x,
+                is_init_image=True,
+                temporal_chunk=False):
+        
+        pad_mode = self.pad_mode if self.time_pad < x.shape[2] else 'constant'
+
+        
+        if not temporal_chunk:
+            x = nn.functional.pad(input=x,
+                                  pad=self.time_causal_padding,
+                                  mode=pad_mode)
+        
+        else:
+            print('working...')
+
+        
+        x = self.conv(x)
+        return x 
+    
+
+
+
+if __name__ == "__main__":
+
+    conv_layer = CausalConv3d(in_channels=3,
+                              out_channels=3,
+                              kernel_size=(3, 3, 3),
+                              stride=1,
+                              padding=0)
+    # print(conv_layer)
+    print(conv_layer.apply(conv_layer._init_weights))
+
+    x = torch.randn(2, 3, 8, 256, 256)
+
+    output = conv_layer(x)
+    print(output.shape)
+
+
+        
