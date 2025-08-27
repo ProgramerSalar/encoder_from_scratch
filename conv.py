@@ -66,12 +66,16 @@ class CausalConv3d(nn.Module):
 
         
         if not temporal_chunk:
+            # padding (1, 1, 1, 1, 2, 0) -> (height, width, frame) 
+            # (8) + (2, 0) => 10
+            # (256, 256) + (1, 1, 1, 1) => (258, 258)
+            # ([1, 2, 8, 256, 256])  ->  ([2, 3, 10, 258, 258])
             x = nn.functional.pad(input=x,
                                   pad=self.time_causal_padding,
                                   mode=pad_mode)
-        
+            
         else:
-            print('working...')
+            print('work in progress...')
 
         
         x = self.conv(x)
@@ -93,7 +97,7 @@ if __name__ == "__main__":
     x = torch.randn(2, 3, 8, 256, 256)
 
     output = conv_layer(x)
-    print(output.shape)
+    print(output.shape) 
 
 
         
