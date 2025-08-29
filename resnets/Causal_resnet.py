@@ -21,7 +21,7 @@ class CausalResnet3d(nn.Module):
         super().__init__()
         self.output_scale_factor = output_scale_factor
         
-        print(f"what is the num_groups: {num_groups} and num_channels: {in_channels}")
+        # print(f"what is the num_groups: {num_groups} and num_channels: {in_channels}")
         self.norm1 = nn.GroupNorm(num_groups=num_groups,
                                   num_channels=in_channels,
                                   eps=eps,
@@ -67,6 +67,7 @@ class CausalResnet3d(nn.Module):
                 temporal_chunk=False) -> torch.FloatTensor:
         
         hidden_states = x
+        # print(f"what is the norm1: {self.norm1} and data shape: {hidden_states.shape}")
         hidden_states = self.norm1(hidden_states)
         hidden_states = self.activation_fn(hidden_states)
         hidden_states = self.conv1(hidden_states, is_init_image, temporal_chunk)
@@ -88,20 +89,88 @@ class CausalResnet3d(nn.Module):
         
 
 
+class CausalDownsample3D(nn.Module):
+
+    def __init__(self,
+                 in_channels: int,
+                 use_conv: bool = True,
+                 out_channels: int = None,
+                 kernel_size: int = 3,
+                 bias=True):
+        
+        super().__init__()
+        self.in_channels = in_channels
+        self.use_conv = use_conv
+        
+        stride = (1, 2, 2)
+        if self.use_conv:
+            self.conv = CausalConv3d(in_channels=in_channels,
+                                out_channels=out_channels,
+                                kernel_size=kernel_size,
+                                bias=bias)
+            
+        else:
+            assert in_channels == out_channels, 'make sure `in_channels` and `out_channels` are equal!'
+            self.conv = nn.Conv3d(in_channels=in_channels,
+                             out_channels=out_channels,
+                             kernel_size=stride,    # (1, 1, 1)
+                             stride=stride  # (1, 1, 1)
+                             )
+            
+        
+
+    
+    def forward(self, 
+                x: torch.FloatTensor,
+                is_init_image: bool = True,
+                temporal_chunk: bool = False):
+        
+        assert x.shape[1] == self.in_channels, 'make sure `video_channels` are equal to `channels`!'
+
+        x = self.conv(x,
+                      is_init_image=is_init_image,
+                      temporal_chunk=temporal_chunk)
+        
+        
+        if self.use_conv:
+            x = self.conv(x,
+                          is_init_image=is_init_image,
+                          temporal_chunk=temporal_chunk)
+            
+        
+        return x 
+        
 
 
+class CausalTemporalDownsample3D(nn.ModuleList):
+
+    pass 
 
 
 
 if __name__ == "__main__":
 
-    causal_resnet_3d = CausalResnet3d(in_channels=64,
-                                      out_channels=64)
-    print(causal_resnet_3d)
+            ## CausalResnet3d ##
+    # causal_resnet_3d = CausalResnet3d(in_channels=64,
+    #                                   out_channels=64)
+    # print(causal_resnet_3d)
 
-    x = torch.randn(2, 64, 8, 256, 256)
+    # x = torch.randn(2, 64, 8, 256, 256)
     
-    output = causal_resnet_3d(x)
+    # output = causal_resnet_3d(x)
+    # print(output.shape)
+    # ---------------------------------------------------------
+
+            ## CausalDownsampe ## 
+    causal_down_sample = CausalDownsample3D(in_channels=3,
+                                            out_channels=3,
+                                            use_conv=True)
+    
+    print(causal_down_sample)
+    
+    x = torch.randn(2, 3, 8, 256, 256)
+    output = causal_down_sample(x)
+
     print(output.shape)
 
 

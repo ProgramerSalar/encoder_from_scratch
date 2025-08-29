@@ -58,24 +58,24 @@ class CausalConv3d(nn.Module):
 
 
     def forward(self, 
-                x,
-                is_init_image=True,
-                temporal_chunk=False):
+                x: torch.FloatTensor,
+                is_init_image: bool = True,
+                temporal_chunk: bool = False):
         
         pad_mode = self.pad_mode if self.time_pad < x.shape[2] else 'constant'
 
-        
-        if not temporal_chunk:
-            # padding (1, 1, 1, 1, 2, 0) -> (height, width, frame) 
-            # (8) + (2, 0) => 10
-            # (256, 256) + (1, 1, 1, 1) => (258, 258)
-            # ([1, 2, 8, 256, 256])  ->  ([2, 3, 10, 258, 258])
-            x = nn.functional.pad(input=x,
-                                  pad=self.time_causal_padding,
-                                  mode=pad_mode)
-            
-        else:
-            print('work in progress...')
+        if is_init_image:
+            if not temporal_chunk:
+                # padding (1, 1, 1, 1, 2, 0) -> (height, width, frame) 
+                # (8) + (2, 0) => 10
+                # (256, 256) + (1, 1, 1, 1) => (258, 258)
+                # ([1, 2, 8, 256, 256])  ->  ([2, 3, 10, 258, 258])
+                x = nn.functional.pad(input=x,
+                                    pad=self.time_causal_padding,
+                                    mode=pad_mode)
+                
+            else:
+                print(f'work in progress... `{temporal_chunk}`')
 
         
         x = self.conv(x)
