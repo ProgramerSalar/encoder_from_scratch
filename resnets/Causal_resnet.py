@@ -102,6 +102,7 @@ class CausalDownsample3D(nn.Module):
         self.in_channels = in_channels
         self.use_conv = use_conv
         
+        # (1, 2, 2) -> (depth_dim, height_dim, width_dim)
         stride = (1, 2, 2)
         if self.use_conv:
             self.conv = CausalConv3d(in_channels=in_channels,
@@ -127,15 +128,16 @@ class CausalDownsample3D(nn.Module):
         
         assert x.shape[1] == self.in_channels, 'make sure `video_channels` are equal to `channels`!'
 
-        x = self.conv(x,
-                      is_init_image=is_init_image,
-                      temporal_chunk=temporal_chunk)
+        
         
         
         if self.use_conv:
             x = self.conv(x,
                           is_init_image=is_init_image,
                           temporal_chunk=temporal_chunk)
+            
+        else:
+            x = self.conv(x)
             
         
         return x 
@@ -144,7 +146,65 @@ class CausalDownsample3D(nn.Module):
 
 class CausalTemporalDownsample3D(nn.ModuleList):
 
-    pass 
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int = None,
+                 use_conv: bool = True,
+                 kernel_size: int = 3,
+                 bias=True
+                 ):
+        
+        super().__init__()
+        self.in_channels = in_channels
+        self.use_conv = use_conv
+        
+        # (2, 1, 1) -> (depth_dim, height_dim, width_dim)
+        stride = (2, 1, 1)
+        if self.use_conv:
+            self.conv = CausalConv3d(in_channels=in_channels,
+                                     out_channels=out_channels,
+                                     kernel_size=kernel_size,
+                                     stride=stride,
+                                     bias=bias)
+            
+        else:
+            self.conv = nn.Conv3d(in_channels=in_channels,
+                                  out_channels=out_channels,
+                                  kernel_size=3,
+                                  stride=stride)
+            
+
+
+    def forward(self,
+                sample: torch.FloatTensor,
+                is_init_image=True,
+                temporal_chunk=False) -> torch.FloatTensor:
+        
+
+
+        assert sample.shape[1] == self.in_channels, 'make sure `in_channels` and `video_channels` are equal!'
+
+        # (width_padding, height_padding, frame_padding)
+        pad = (1, 1, 1, 1, 0, 1)
+
+        sample = nn.functional.pad(input=sample,
+                                   pad=pad,
+                                   mode='constant',
+                                   value=0)
+        # print(f"what is the output of padding : {sample.shape}")
+        
+        if self.use_conv:
+            sample = self.conv(sample,
+                               is_init_image=is_init_image,
+                               temporal_chunk=temporal_chunk)
+            
+        else:
+            sample = self.conv(sample)
+
+        return sample
+    
+
+
 
 
 
@@ -162,17 +222,28 @@ if __name__ == "__main__":
     # ---------------------------------------------------------
 
             ## CausalDownsampe ## 
-    causal_down_sample = CausalDownsample3D(in_channels=3,
-                                            out_channels=3,
-                                            use_conv=True)
+    # causal_down_sample = CausalDownsample3D(in_channels=3,
+    #                                         out_channels=3,
+    #                                         use_conv=True)
     
-    print(causal_down_sample)
+    # print(causal_down_sample)
+    
+    # x = torch.randn(2, 3, 8, 256, 256)
+    # output = causal_down_sample(x)
+
+    # print(output.shape)
+# -------------------------------------------------------------
+
+            ## Temporal Downsample 
+    
+    causal_temporal_downsample = CausalTemporalDownsample3D(in_channels=3, 
+                                                            out_channels=3,
+                                                            use_conv=True)
     
     x = torch.randn(2, 3, 8, 256, 256)
-    output = causal_down_sample(x)
 
-    print(output.shape)
-
+    output = causal_temporal_downsample(x)
+    print(output.shape) # ([2, 3, 10, 258, 258])
 
       
 

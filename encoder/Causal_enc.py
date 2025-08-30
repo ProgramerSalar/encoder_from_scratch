@@ -11,7 +11,7 @@ class CausalEncoder3D(nn.Module):
                  in_channels: int = 3,
                  out_channels: int = 3,
                  down_block_type: Tuple[str, ...] = ("DownEncoderBlockCausal3D",),
-                 block_out_channels: Tuple[int, ...] = (64,),
+                 block_out_channels: Tuple[int, ...] = (128,),
                  num_layers: int = 3,
                  dropout: float = 0.0,
                  eps: float = 1e-6,
@@ -29,40 +29,48 @@ class CausalEncoder3D(nn.Module):
         
 
         # mid block 
-        input_channels = block_out_channels[0]
+        output_channels = block_out_channels[0]
+        self.down_blocks = nn.ModuleList([])
         for i, down_block_type in enumerate(down_block_type):
-            input_channels = input_channels
+            input_channels = output_channels
             output_channels = block_out_channels[i]
+            print(f"what is the input_channels: {input_channels} and output_channels: {output_channels}")
 
-            # print(f"what is the input_channels: {input_channels} and output_channels: {output_channels}")
             # [64] -> [64]
             # [64] -> [128]
             # [128] -> [256] 
             # [256] -> [256]
-            self.down_blocks = nn.ModuleList([CausalDownEncoder3d(
+            down_block = CausalDownEncoder3d(
                             in_channels=input_channels,
                             out_channels=output_channels,
-                            num_layers=num_layers,
+                            num_layers=num_layers[i],
                             dropout=dropout,
                             eps=eps,
                             act_fn=act_fn,
                             output_scale_factor=output_scale_factor,
                             num_groups=num_groups
-            )])
+            )
 
+            self.down_blocks.append(down_block)
+
+        
 
     def forward(self, 
                 x,
                 is_init_image=True,
                 temporal_chunk=False):
 
+        # [3] -> [128]
         sample = self.conv_in(x,
                               is_init_image=is_init_image,
                               temporal_chunk=temporal_chunk)
         
         for down_block in self.down_blocks:
-            print(f"what is the down_block: {down_block} and what is the data_shape: {sample.shape}")
-            break
+            # print(f"what is the down_block: {down_block} and what is the data_shape: {sample.shape}")
+            sample = down_block(sample, 
+                                is_init_image=is_init_image,
+                                temporal_chunk=temporal_chunk)
+            
             
             
 
@@ -78,12 +86,13 @@ if __name__ == "__main__":
                                                          "DownEncoderBlockCausal3D",
                                                          "DownEncoderBlockCausal3D",
                                                          "DownEncoderBlockCausal3D"),
-                                        block_out_channels=(64, 128, 256, 256),
+                                        block_out_channels=(128, 256, 512, 512),
+                                        num_layers=(2, 2, 2, 2),
                                         num_groups=2
                                         )
     
 
-    # print(causal_encoder_3d)
+    print(causal_encoder_3d)
 
     x = torch.randn(2, 3, 8, 256, 256)
     output = causal_encoder_3d(x)

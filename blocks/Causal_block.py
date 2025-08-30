@@ -44,23 +44,29 @@ class CausalDownEncoder3d(nn.Module):
         self.resnets = nn.ModuleList(resnets)
 
         
-        if self.add_spatial_downsample:
+        # if self.add_spatial_downsample:
 
-            self.downsamplers = nn.ModuleList([
-                CausalDownsample3D(in_channels=in_channels,
-                                   out_channels=out_channels,
-                                   use_conv=True)
-            ])
+        #     self.downsamplers = nn.ModuleList([
+        #         CausalDownsample3D(in_channels=in_channels,
+        #                            out_channels=out_channels,
+        #                            use_conv=True)
+        #     ])
 
-        else:
-            self.downsamplers = None
+        # else:
+        #     self.downsamplers = None
 
 
-        if self.add_temporal_downsample:
+        # if self.add_temporal_downsample:
 
-            self.temporal_downsampler = nn.ModuleList([
-                CausalTemporalDownsample3D()
-            ])
+        #     self.temporal_downsampler = nn.ModuleList([
+        #         CausalTemporalDownsample3D(in_channels=in_channels,
+        #                                    out_channels=out_channels,
+        #                                    use_conv=True)
+        #     ])
+
+        # else:
+
+        #     self.temporal_downsampler = None
         
 
 
@@ -85,11 +91,18 @@ class CausalDownEncoder3d(nn.Module):
                                    temporal_chunk=temporal_chunk)
             
             
-        if self.downsamplers is not None:
-            for downsampler in self.downsamplers:
-                hidden_states = downsampler(hidden_states,
-                                            is_init_image=is_init_image,
-                                            temporal_chunk=temporal_chunk)
+        # if self.downsamplers is not None:
+        #     for downsampler in self.downsamplers:
+        #         hidden_states = downsampler(hidden_states,
+        #                                     is_init_image=is_init_image,
+        #                                     temporal_chunk=temporal_chunk)
+                
+
+        # if self.temporal_downsampler is not None:
+        #     for temporalsampler in self.temporal_downsampler:
+        #         hidden_states = temporalsampler(hidden_states,
+        #                                         is_init_image=is_init_image,
+        #                                         temporal_chunk=temporal_chunk)
                 
 
 
