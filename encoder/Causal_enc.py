@@ -34,7 +34,7 @@ class CausalEncoder3D(nn.Module):
         for i, down_block_type in enumerate(down_block_type):
             input_channels = output_channels
             output_channels = block_out_channels[i]
-            print(f"what is the input_channels: {input_channels} and output_channels: {output_channels}")
+            # print(f"what is the input_channels: {input_channels} and output_channels: {output_channels}")
 
             # [64] -> [64]
             # [64] -> [128]
@@ -67,6 +67,7 @@ class CausalEncoder3D(nn.Module):
         
         for down_block in self.down_blocks:
             # print(f"what is the down_block: {down_block} and what is the data_shape: {sample.shape}")
+            # print(f"what is the arch >>> {down_block} and data >>>> {sample.shape}")
             sample = down_block(sample, 
                                 is_init_image=is_init_image,
                                 temporal_chunk=temporal_chunk)
@@ -92,8 +93,9 @@ if __name__ == "__main__":
                                         )
     
 
-    print(causal_encoder_3d)
+    # print(causal_encoder_3d)
 
+    print('-'*20)
     x = torch.randn(2, 3, 8, 256, 256)
     output = causal_encoder_3d(x)
     print(output.shape)

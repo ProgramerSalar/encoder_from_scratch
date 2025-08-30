@@ -85,6 +85,7 @@ class CausalDownEncoder3d(nn.Module):
 
         for resnet in self.resnets:
             
+            # print(f"what is the arch. >>> {resnet} and data shape: {sample.shape}")
             hidden_states = resnet(sample,
                                    temb=temb,
                                    is_init_image=is_init_image,

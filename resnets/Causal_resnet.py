@@ -20,6 +20,7 @@ class CausalResnet3d(nn.Module):
         
         super().__init__()
         self.output_scale_factor = output_scale_factor
+        self.in_channels = in_channels
         
         # print(f"what is the num_groups: {num_groups} and num_channels: {in_channels}")
         self.norm1 = nn.GroupNorm(num_groups=num_groups,
@@ -37,17 +38,25 @@ class CausalResnet3d(nn.Module):
                                   eps=eps,
                                   affine=True)
         self.dropout = nn.Dropout(dropout)
+        conv_2d_out_channels = out_channels
         self.conv2 = CausalConv3d(in_channels=out_channels,
                                   out_channels=out_channels,
                                   kernel_size=3,
                                   stride=1)
         self.activation_fn = get_activation(act_fn=act_fn)
 
+        if use_in_shortcut is None:
+            self.use_in_shortcut = self.in_channels != conv_2d_out_channels
+            print(f"self.use_in_shortcut: >>>>>>>>>>>>>>>  {self.use_in_shortcut}")
+        else:
+            self.use_in_shortcut
+
+
         # [128] != [64]
-        if in_channels != out_channels:
-            self.use_in_shortcut = True 
+        self.use_shortcut = None
+        if self.use_in_shortcut:
             self.conv_shortcut = CausalConv3d(in_channels=in_channels,
-                                              out_channels=out_channels,
+                                              out_channels=conv_2d_out_channels,
                                               kernel_size=1,
                                               stride=1,
                                               bias=True)
@@ -61,12 +70,12 @@ class CausalResnet3d(nn.Module):
 
         
     def forward(self,
-                x: torch.FloatTensor,
+                input_tensor: torch.FloatTensor,
                 temb: torch.FloatTensor = None,
                 is_init_image = True,
                 temporal_chunk=False) -> torch.FloatTensor:
         
-        hidden_states = x
+        hidden_states = input_tensor
         # print(f"what is the norm1: {self.norm1} and data shape: {hidden_states.shape}")
         hidden_states = self.norm1(hidden_states)
         hidden_states = self.activation_fn(hidden_states)
@@ -77,13 +86,16 @@ class CausalResnet3d(nn.Module):
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.conv2(hidden_states, is_init_image, temporal_chunk)
 
+        
+
         if self.use_in_shortcut:
             print('working...')
-            x = self.conv_shortcut(x,
+            input_tensor = self.conv_shortcut(input_tensor,
                             is_init_image=is_init_image,
                             temporal_chunk=temporal_chunk)
 
-        output_tensor = (x + hidden_states) / self.output_scale_factor
+        # print(f"what is the shape of x: {x.shape} and hidden_states: {hidden_states.shape}")
+        output_tensor = (input_tensor + hidden_states) / self.output_scale_factor
 
         return output_tensor
         
