@@ -28,12 +28,8 @@ class CausalDownEncoder3d(nn.Module):
         for i in range(num_layers):
         
             input_channels = in_channels if i == 0 else out_channels 
-            output_channels = out_channels
-
-            # print(f"what is the index: {i}, input_channel: {input_channels} and output_channels: {output_channels}")
-
             resnets.append(CausalResnet3d(in_channels=input_channels,
-                               out_channels=output_channels,
+                               out_channels=out_channels,
                                 num_groups=num_groups,
                                 eps=eps,
                                 act_fn=act_fn,
@@ -42,74 +38,49 @@ class CausalDownEncoder3d(nn.Module):
                                ))
             
         self.resnets = nn.ModuleList(resnets)
+        if self.add_spatial_downsample:
+            self.downsamplers = nn.ModuleList([
+                CausalDownsample3D(in_channels=out_channels,
+                                   out_channels=out_channels,
+                                   use_conv=True)
+            ])
+        else:
+            self.downsamplers = None
 
+        if self.add_temporal_downsample:
+            self.temporal_downsampler = nn.ModuleList([
+                CausalTemporalDownsample3D(in_channels=out_channels,
+                                           out_channels=out_channels,
+                                           use_conv=True)
+            ])
+        else:
+            self.temporal_downsampler = None
         
-        # if self.add_spatial_downsample:
-
-        #     self.downsamplers = nn.ModuleList([
-        #         CausalDownsample3D(in_channels=in_channels,
-        #                            out_channels=out_channels,
-        #                            use_conv=True)
-        #     ])
-
-        # else:
-        #     self.downsamplers = None
-
-
-        # if self.add_temporal_downsample:
-
-        #     self.temporal_downsampler = nn.ModuleList([
-        #         CausalTemporalDownsample3D(in_channels=in_channels,
-        #                                    out_channels=out_channels,
-        #                                    use_conv=True)
-        #     ])
-
-        # else:
-
-        #     self.temporal_downsampler = None
-        
-
-
-               
-
-
-
 
     def forward(self, 
-                sample: torch.FloatTensor,
+                hidden_states: torch.FloatTensor,
                 temb=None,
                 is_init_image=True,
                 temporal_chunk=False) -> torch.FloatTensor:
         
-
-
-        for resnet in self.resnets:
-            
-            # print(f"what is the arch. >>> {resnet} and data shape: {sample.shape}")
-            hidden_states = resnet(sample,
+        for resnet in self.resnets:   
+            hidden_states = resnet(hidden_states,
                                    temb=temb,
                                    is_init_image=is_init_image,
                                    temporal_chunk=temporal_chunk)
-            
-            
-        # if self.downsamplers is not None:
-        #     for downsampler in self.downsamplers:
-        #         hidden_states = downsampler(hidden_states,
-        #                                     is_init_image=is_init_image,
-        #                                     temporal_chunk=temporal_chunk)
+           
+        if self.downsamplers is not None:
+            for downsampler in self.downsamplers:     
+                hidden_states = downsampler(hidden_states,
+                                            is_init_image=is_init_image,
+                                            temporal_chunk=temporal_chunk)
+              
+        if self.temporal_downsampler is not None:
+            for temporalsampler in self.temporal_downsampler:
+                hidden_states = temporalsampler(hidden_states,
+                                                is_init_image=is_init_image,
+                                                temporal_chunk=temporal_chunk)
                 
-
-        # if self.temporal_downsampler is not None:
-        #     for temporalsampler in self.temporal_downsampler:
-        #         hidden_states = temporalsampler(hidden_states,
-        #                                         is_init_image=is_init_image,
-        #                                         temporal_chunk=temporal_chunk)
-                
-
-
-        
-
-            
         return hidden_states
 
 
@@ -127,5 +98,4 @@ if __name__ == "__main__":
     x = torch.randn(2, 64, 8, 256, 256)
 
     output = causal_down_encoder_3d(x)
-    print(output.shape)
     # pass

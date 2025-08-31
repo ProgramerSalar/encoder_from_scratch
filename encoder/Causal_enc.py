@@ -17,10 +17,10 @@ class CausalEncoder3D(nn.Module):
                  eps: float = 1e-6,
                  act_fn: str = "swish",
                  output_scale_factor: float = 1.0,
-                 num_groups: int = 32
+                 num_groups: int = 32,
+                 add_spatial_downsample: Tuple[bool, ...] = (True,),
+                 add_temporal_downsample: Tuple[bool, ...] = (True,)
                  ):
-        
-
         super().__init__()
         
         # [3] -> [64]
@@ -34,8 +34,6 @@ class CausalEncoder3D(nn.Module):
         for i, down_block_type in enumerate(down_block_type):
             input_channels = output_channels
             output_channels = block_out_channels[i]
-            # print(f"what is the input_channels: {input_channels} and output_channels: {output_channels}")
-
             # [64] -> [64]
             # [64] -> [128]
             # [128] -> [256] 
@@ -48,12 +46,11 @@ class CausalEncoder3D(nn.Module):
                             eps=eps,
                             act_fn=act_fn,
                             output_scale_factor=output_scale_factor,
-                            num_groups=num_groups
+                            num_groups=num_groups,
+                            add_spatial_downsample=add_spatial_downsample[i],
+                            add_temporal_downsample=add_temporal_downsample
             )
-
             self.down_blocks.append(down_block)
-
-        
 
     def forward(self, 
                 x,
@@ -66,15 +63,10 @@ class CausalEncoder3D(nn.Module):
                               temporal_chunk=temporal_chunk)
         
         for down_block in self.down_blocks:
-            # print(f"what is the down_block: {down_block} and what is the data_shape: {sample.shape}")
-            # print(f"what is the arch >>> {down_block} and data >>>> {sample.shape}")
             sample = down_block(sample, 
                                 is_init_image=is_init_image,
                                 temporal_chunk=temporal_chunk)
             
-            
-            
-
         return sample      
 
 
@@ -89,7 +81,9 @@ if __name__ == "__main__":
                                                          "DownEncoderBlockCausal3D"),
                                         block_out_channels=(128, 256, 512, 512),
                                         num_layers=(2, 2, 2, 2),
-                                        num_groups=2
+                                        num_groups=2,
+                                        add_spatial_downsample=(True, True, True, False),
+                                        add_temporal_downsample=(True, True, True, False)
                                         )
     
 
@@ -98,4 +92,5 @@ if __name__ == "__main__":
     print('-'*20)
     x = torch.randn(2, 3, 8, 256, 256)
     output = causal_encoder_3d(x)
-    print(output.shape)
+    # torch.Size([2, 3, 8, 256, 256]) -> torch.Size([2, 512, 1, 32, 32])
+    print(f"what is the encoder output shape: {output.shape}")

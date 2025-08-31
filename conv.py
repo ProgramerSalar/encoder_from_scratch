@@ -2,7 +2,7 @@ import torch
 from torch import nn 
 from typing import Union
 from timm.layers import trunc_normal_
-
+from einops import rearrange
 
 class CausalConv3d(nn.Module):
 
@@ -81,6 +81,24 @@ class CausalConv3d(nn.Module):
         x = self.conv(x)
         return x 
     
+
+
+class CausalGroupNorm(nn.GroupNorm):
+
+    def forward(self,
+                x: torch.Tensor) -> torch.Tensor:
+    
+        t = x.shape[2]
+        x = rearrange(tensor=x,
+                      pattern='b c t h w -> (b t) c h w')
+        
+        # pass the data in GroupNorm 
+        x = super().forward(x)
+        x = rearrange(tensor=x,
+                      pattern='(b t) c h w -> b c t h w', t=t)
+        
+        return x 
+
 
 
 

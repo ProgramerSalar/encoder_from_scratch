@@ -2,7 +2,7 @@ import torch
 from torch import nn 
 from typing import Union
 
-from conv import CausalConv3d
+from conv import CausalConv3d, CausalGroupNorm
 from utils import get_activation
 
 class CausalResnet3d(nn.Module):
@@ -21,9 +21,7 @@ class CausalResnet3d(nn.Module):
         super().__init__()
         self.output_scale_factor = output_scale_factor
         self.in_channels = in_channels
-        
-        # print(f"what is the num_groups: {num_groups} and num_channels: {in_channels}")
-        self.norm1 = nn.GroupNorm(num_groups=num_groups,
+        self.norm1 = CausalGroupNorm(num_groups=num_groups,
                                   num_channels=in_channels,
                                   eps=eps,
                                   affine=True)
@@ -33,7 +31,7 @@ class CausalResnet3d(nn.Module):
                                   stride=1)
         
 
-        self.norm2 = nn.GroupNorm(num_groups=num_groups,
+        self.norm2 = CausalGroupNorm(num_groups=num_groups,
                                   num_channels=out_channels,
                                   eps=eps,
                                   affine=True)
@@ -47,13 +45,14 @@ class CausalResnet3d(nn.Module):
 
         if use_in_shortcut is None:
             self.use_in_shortcut = self.in_channels != conv_2d_out_channels
-            print(f"self.use_in_shortcut: >>>>>>>>>>>>>>>  {self.use_in_shortcut}")
+           
         else:
             self.use_in_shortcut
 
 
         # [128] != [64]
-        self.use_shortcut = None
+        self.conv_shortcut = None
+
         if self.use_in_shortcut:
             self.conv_shortcut = CausalConv3d(in_channels=in_channels,
                                               out_channels=conv_2d_out_channels,
@@ -76,7 +75,6 @@ class CausalResnet3d(nn.Module):
                 temporal_chunk=False) -> torch.FloatTensor:
         
         hidden_states = input_tensor
-        # print(f"what is the norm1: {self.norm1} and data shape: {hidden_states.shape}")
         hidden_states = self.norm1(hidden_states)
         hidden_states = self.activation_fn(hidden_states)
         hidden_states = self.conv1(hidden_states, is_init_image, temporal_chunk)
@@ -88,13 +86,10 @@ class CausalResnet3d(nn.Module):
 
         
 
-        if self.use_in_shortcut:
-            print('working...')
+        if self.conv_shortcut is not None:
             input_tensor = self.conv_shortcut(input_tensor,
                             is_init_image=is_init_image,
                             temporal_chunk=temporal_chunk)
-
-        # print(f"what is the shape of x: {x.shape} and hidden_states: {hidden_states.shape}")
         output_tensor = (input_tensor + hidden_states) / self.output_scale_factor
 
         return output_tensor
@@ -120,6 +115,7 @@ class CausalDownsample3D(nn.Module):
             self.conv = CausalConv3d(in_channels=in_channels,
                                 out_channels=out_channels,
                                 kernel_size=kernel_size,
+                                stride=stride,
                                 bias=bias)
             
         else:
@@ -169,21 +165,23 @@ class CausalTemporalDownsample3D(nn.ModuleList):
         super().__init__()
         self.in_channels = in_channels
         self.use_conv = use_conv
-        
+        self.out_channels = out_channels or in_channels
+
         # (2, 1, 1) -> (depth_dim, height_dim, width_dim)
         stride = (2, 1, 1)
         if self.use_conv:
             self.conv = CausalConv3d(in_channels=in_channels,
-                                     out_channels=out_channels,
+                                     out_channels=self.out_channels,
                                      kernel_size=kernel_size,
                                      stride=stride,
                                      bias=bias)
             
         else:
-            self.conv = nn.Conv3d(in_channels=in_channels,
-                                  out_channels=out_channels,
-                                  kernel_size=3,
-                                  stride=stride)
+            print(f"invalid !")
+            # self.conv = nn.Conv3d(in_channels=in_channels,
+            #                       out_channels=self.out_channels,
+            #                       kernel_size=3,
+            #                       stride=stride)
             
 
 
@@ -195,16 +193,6 @@ class CausalTemporalDownsample3D(nn.ModuleList):
 
 
         assert sample.shape[1] == self.in_channels, 'make sure `in_channels` and `video_channels` are equal!'
-
-        # (width_padding, height_padding, frame_padding)
-        pad = (1, 1, 1, 1, 0, 1)
-
-        sample = nn.functional.pad(input=sample,
-                                   pad=pad,
-                                   mode='constant',
-                                   value=0)
-        # print(f"what is the output of padding : {sample.shape}")
-        
         if self.use_conv:
             sample = self.conv(sample,
                                is_init_image=is_init_image,
