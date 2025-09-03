@@ -2,8 +2,8 @@ import torch
 from torch import nn 
 from typing import Union, Optional, Tuple
 
-from blocks.Causal_block import CausalDownBlock3d
-from conv import CausalConv3d
+from blocks.Causal_block import CausalDownBlock3d, CausalMidBlock3d
+from conv import CausalConv3d, CausalGroupNorm
 
 class CausalEncoder3d(nn.Module):
 
@@ -19,8 +19,8 @@ class CausalEncoder3d(nn.Module):
                  num_groups: int = 32,
                  dropout: float = 0.0,
                  add_spatial_downsample: Tuple[bool, ...] = (True,),
-                 add_temporal_downsample: Tuple[bool, ...] = (False,)
-                                     
+                 add_temporal_downsample: Tuple[bool, ...] = (False,),
+                double_z: bool = True   
                  ):
         super().__init__()
 
@@ -55,6 +55,34 @@ class CausalEncoder3d(nn.Module):
             
             
             self.down_blocks.append(down_block)
+
+        
+        # mid block 
+        self.mid_block = CausalMidBlock3d(
+            in_channels=block_out_channels[-1],
+            attention_head_dim=block_out_channels[-1],
+            num_groups=num_groups,
+            add_attention=True,
+            dropout=dropout,
+            
+        )
+
+        self.conv_norm_out = CausalGroupNorm(num_groups=num_groups,
+                                             num_channels=block_out_channels[-1],
+                                             eps=1e-6)
+        self.conv_act = nn.SiLU()
+
+        conv_out_channels = 2 * out_channels if double_z else out_channels
+        self.conv_out = CausalConv3d(in_channels=block_out_channels[-1],
+                                     out_channels=conv_out_channels,
+                                     kernel_size=3,
+                                     stride=1)
+        
+        self.gradient_checkpointing = False
+
+    
+        
+
         
             
         
@@ -72,6 +100,14 @@ class CausalEncoder3d(nn.Module):
                                 is_init_image=is_init_image,
                                 temporal_chunk=temporal_chunk)
             
+        sample = self.mid_block(sample, is_init_image, temporal_chunk)
+
+        # post process 
+        sample = self.conv_norm_out(sample)
+        sample = self.conv_act(sample)
+        sample = self.conv_out(sample, is_init_image, temporal_chunk)
+
+        # [2, 3, 8, 256, 256] -> [2, 2*3, 1, 32, 32]
         return sample
     
 
@@ -95,7 +131,7 @@ if __name__ == "__main__":
                                         add_temporal_downsample=(True, True, True, False,)
                                        )
     
-    # print(causal_encoder3d)
+    print(causal_encoder3d)
 
     x = torch.randn(2, 3, 8, 256, 256)
 

@@ -9,7 +9,7 @@ class CausalResnet3d(nn.Module):
                  in_channels: int,
                  out_channels: int,
                  num_groups: int = 32,
-                 dropout: float = 1e-6,
+                 dropout: float = 0.0,
                  use_in_shortcut: bool = None
                  ):
         super().__init__()
@@ -17,14 +17,16 @@ class CausalResnet3d(nn.Module):
         
         # [128]
         self.norm1 = CausalGroupNorm(num_groups=num_groups,
-                                     num_channels=in_channels)
+                                     num_channels=in_channels,
+                                     eps=1e-6)
         
         self.conv1 = CausalConv3d(in_channels=in_channels,
                                   out_channels=out_channels)
         
 
         self.norm2 = CausalGroupNorm(num_groups=num_groups,
-                                     num_channels=out_channels)
+                                     num_channels=out_channels,
+                                     eps=1e-6)
         self.dropout = torch.nn.Dropout(dropout)
         
         conv_2d_out_channels = out_channels
@@ -146,6 +148,8 @@ class CausalTemporalDownsampele2x(nn.Module):
         
         return hidden_state
     
+
+
 
 
     
