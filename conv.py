@@ -34,7 +34,7 @@ class CausalConv3d(nn.Module):
         # (1, 1, 1, 1, 2, 0)
         self.time_causal_padding = (self.width_pad, self.width_pad, self.height_pad, self.height_pad, self.time_pad, 0)
 
-
+        # print(f"in the conv class: kernel_size: {kernel_size}, stride: {stride}, padding: {padding}, dilation: {self.dilation}")
         self.conv = nn.Conv3d(in_channels=in_channels,
                               out_channels=out_channels,
                               kernel_size=kernel_size,

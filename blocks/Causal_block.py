@@ -1,101 +1,83 @@
 import torch
 from torch import nn 
-import inspect
-from resnets.Causal_resnet import CausalResnet3d, CausalDownsample3D, CausalTemporalDownsample3D
+from typing import Union, Tuple
 
-class CausalDownEncoder3d(nn.Module):
+from resnets.Causal_resnet import CausalResnet3d, CausalDownSample2x, CausalTemporalDownsampele2x
+
+class CausalDownBlock3d(nn.Module):
 
     def __init__(self,
-                 in_channels:int = 3,
-                 out_channels: int = 3,
+                 in_channels: int,
+                 out_channels: int,
+                 kernel_size: Union[int, Tuple[int, ...]] = 3,
+                 stride: Union[int, Tuple[int, ...]] = 1,
+                 padding: Union[int, Tuple[int, ...]] = 0,
+                 block_out_channels: int = 128,
                  num_layers: int = 3,
-                 dropout: float = 0.0,
-                 eps: float = 1e-6,
-                 act_fn: str = "swish",
-                 output_scale_factor: float = 1.0,
                  num_groups: int = 32,
+                 dropout: float = 0.0,
                  add_spatial_downsample: bool = True,
-                 add_temporal_downsample: bool = False,
+                 add_temporal_downsample: bool = False
                  ):
         
         super().__init__()
-        self.add_spatial_downsample = add_spatial_downsample
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.add_temporal_downsample = add_temporal_downsample
+
         
-        resnets= []
-        for i in range(num_layers):
-        
-            input_channels = in_channels if i == 0 else out_channels 
-            resnets.append(CausalResnet3d(in_channels=input_channels,
-                               out_channels=out_channels,
-                                num_groups=num_groups,
-                                eps=eps,
-                                act_fn=act_fn,
-                                output_scale_factor=output_scale_factor,
-                                dropout=dropout,
-                               ))
+        self.resnets = nn.ModuleList([])
+        for num_layer in range(num_layers):
+            input_channels = in_channels if num_layer == 0 else out_channels
+            # print(f"[Block] what is the shape of input_channels: {in_channels} and output_channels: {out_channels}")
+
+            resnet = CausalResnet3d(in_channels=input_channels,
+                           out_channels=out_channels,
+                           num_groups=num_groups,
+                           dropout=dropout)
             
-        self.resnets = nn.ModuleList(resnets)
-        if self.add_spatial_downsample:
+            self.resnets.append(resnet)
+
+            
+        if add_spatial_downsample:
+            
             self.downsamplers = nn.ModuleList([
-                CausalDownsample3D(in_channels=out_channels,
+                CausalDownSample2x(in_channels=out_channels,
                                    out_channels=out_channels,
-                                   use_conv=True)
+                                   kernel_size=kernel_size,
+                                   )
             ])
+
         else:
             self.downsamplers = None
 
-        if self.add_temporal_downsample:
+        if add_temporal_downsample:
             self.temporal_downsampler = nn.ModuleList([
-                CausalTemporalDownsample3D(in_channels=out_channels,
-                                           out_channels=out_channels,
-                                           use_conv=True)
+                CausalTemporalDownsampele2x(in_channels=out_channels,
+                                            out_channels=out_channels,
+                                            kernel_size=kernel_size)
             ])
         else:
             self.temporal_downsampler = None
-        
 
-    def forward(self, 
-                hidden_states: torch.FloatTensor,
-                temb=None,
+    def forward(self,
+                hidden_size: torch.FloatTensor,
                 is_init_image=True,
-                temporal_chunk=False) -> torch.FloatTensor:
+                temporal_chunk=False):
         
-        for resnet in self.resnets:   
-            hidden_states = resnet(hidden_states,
-                                   temb=temb,
-                                   is_init_image=is_init_image,
-                                   temporal_chunk=temporal_chunk)
-           
+
+        for resnet in self.resnets:
+            hidden_size = resnet(hidden_size,
+                                 is_init_image=is_init_image,
+                                 temporal_chunk=temporal_chunk)
+            
+            
         if self.downsamplers is not None:
-            for downsampler in self.downsamplers:     
-                hidden_states = downsampler(hidden_states,
-                                            is_init_image=is_init_image,
-                                            temporal_chunk=temporal_chunk)
-              
-        if self.temporal_downsampler is not None:
-            for temporalsampler in self.temporal_downsampler:
-                hidden_states = temporalsampler(hidden_states,
-                                                is_init_image=is_init_image,
-                                                temporal_chunk=temporal_chunk)
+            for downsampler in self.downsamplers:
+                hidden_size = downsampler(hidden_size, is_init_image, temporal_chunk)
                 
-        return hidden_states
 
+        if self.temporal_downsampler is not None:
+            for temporal_downsample in self.temporal_downsampler:   
+                hidden_size = temporal_downsample(hidden_size, is_init_image, temporal_chunk)
+             
 
-
-
-if __name__ == "__main__":
-
-    causal_down_encoder_3d = CausalDownEncoder3d(in_channels=64,
-                                                 out_channels=64,
-                                                 num_layers=2)
-    print(causal_down_encoder_3d)
-    print('-'*20)
-
-
-    x = torch.randn(2, 64, 8, 256, 256)
-
-    output = causal_down_encoder_3d(x)
-    # pass
+        return hidden_size
+    
