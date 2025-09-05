@@ -38,9 +38,6 @@ class CausalConv3d(nn.Module):
                  stride: Union[int, Tuple[int, int, int]] = 1,
                  padding: Union[int, Tuple[int, int, int]] = 0,
                  **kwargs):
-        
-        
-        
         super().__init__()
 
         self.kernel_size = kernel_size
@@ -60,8 +57,6 @@ class CausalConv3d(nn.Module):
             we had understanding this padding in notebook section (question-8): https://github.com/ProgramerSalar/encoder_from_scratch/blob/main/Notebook/notebook.ipynb
         """
         self.time_padding = self.dilation * (self.time_kernel_size - 1)  # 1*(3-1)=>2
-
-
         self.height_padding = self.height_kernel_size // 2      # ≈1
         self.width_padding = self.width_kernel_size // 2        # ≈1
         # (1, 1, 1, 1, 2, 0)
@@ -100,9 +95,7 @@ class CausalConv3d(nn.Module):
     
 
 
-    
-
-
+# <----- so this is testing section -----> #
 if __name__ ==  "__main__":
     
     causal_conv = CausalConv3d(in_channels=3,
