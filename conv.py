@@ -19,6 +19,7 @@ import torch
 from torch import nn 
 from typing import Union, Tuple
 from torch.nn import functional as F
+from einops import rearrange
 
 class CausalConv3d(nn.Module):
 
@@ -94,16 +95,64 @@ class CausalConv3d(nn.Module):
         return x
     
 
+class CausalGroupNorm(nn.Module):
+
+    def __init__(self,
+                 in_channels:int,
+                 num_groups:int = 32, 
+                 eps: float= 1e-5):
+        
+        """ 
+            This is custom normalization.
+            
+            in_channels (`int`): number of channels expected in input
+            num_groups (`int`): number of groups to separate the channels into 
+            eps (`float`): a value added to the denominator for numerical stability. Default: 1e-5
+        """
+        super().__init__()
+
+        self.group_norm = nn.GroupNorm(num_groups=num_groups,
+                                       num_channels=in_channels,
+                                       eps=eps)
+
+    def forward(self, 
+                x: torch.FloatTensor) -> torch.FloatTensor:
+        
+
+        b, c, t, h, w = x.shape
+        # x = x.view(b*t, c, h, w)
+        x = rearrange(x, 
+                      'b c t h w -> (b t) c h w', t=t)
+        x = self.group_norm(x)
+
+        # x = x.view(b, c, t, h, w)
+        x = rearrange(x,
+                      '(b t) c h w -> b c t h w', t=t)
+
+        return x 
+
+
+
+
 
 # <----- so this is testing section -----> #
 if __name__ ==  "__main__":
     
-    causal_conv = CausalConv3d(in_channels=3,
-                               out_channels=3,
-                               kernel_size=3)
+    causal_conv = CausalConv3d(in_channels=128,
+                               out_channels=256,
+                               kernel_size=1)
     
     print(causal_conv)
 
-    x = torch.randn(2, 3, 8, 256, 256)
+    x = torch.randn(2, 128, 8, 256, 256)
     output = causal_conv(x)
     print(output.shape)
+    # --------------------------------------------
+
+    # x = torch.randn(2, 128, 8, 256, 256)
+    # causal_group_norm = CausalGroupNorm(in_channels=128,
+    #                                     num_groups=2,
+    #                                     )
+    
+    # output = causal_group_norm(x)
+    # print(output.shape)

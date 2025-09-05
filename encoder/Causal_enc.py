@@ -1,8 +1,25 @@
+# Copyright 2025 The savitri-AI Team. All rights reserved.
+#
+#    company: https://github.com/savitri-AI
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import torch 
 from torch import nn 
-from typing import Tuple, Union
+from typing import List, Union, Tuple
 
 from conv import CausalConv3d
+from blocks.Causal_block import CausalBlock3d
 
 
 
@@ -12,14 +29,41 @@ class CausalEncoder(nn.Module):
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
-                 num_layers: Union[int, Tuple[int, ...]] = (2,),
+                 channels: List = [128, 256, 512, 512],
+                 num_layers: int = 2,
                  encoder_num_layers: int = 4,
                  dropout: float = 0.0,
                  eps: float = 1e-6,
-                 scale_factor: float = 1.0):
+                 scale_factor: float = 1.0,
+                 norm_num_groups: int = 32):
         super().__init__()
 
-        self.conv_in = 
+        # [2, 3, 8, 256, 256] -> [2, 3, 128, 256, 256]
+        self.conv_in = CausalConv3d(in_channels=in_channels,
+                                    out_channels=channels[0],
+                                    )
+        
+        
+        
+        self.encoder_block_layers = nn.ModuleList([])
+        output_channels = channels[0]
+        for i in range(encoder_num_layers):
+            input_channels = output_channels
+            output_channels = channels[i]
+            # [128] -> [128]
+            # [128] -> [256]
+            # [256] -> [512]
+            # [512] -> [512]
+            
+            self.encoder_block_layers.append(
+                CausalBlock3d(in_channels=input_channels,
+                            out_channels=output_channels,
+                            num_layers=num_layers,
+                            dropout=dropout,
+                            eps=eps,
+                            scale_factor=scale_factor,
+                            norm_num_groups=norm_num_groups)
+            )
 
 
     def forward(self, 
@@ -27,3 +71,17 @@ class CausalEncoder(nn.Module):
         
 
         return sample
+    
+
+if __name__ == "__main__":
+
+    causal_encoder = CausalEncoder(in_channels=3,
+                                   out_channels=4,
+                                   channels=[128, 256, 512, 512],
+                                   num_layers=2,
+                                   encoder_num_layers=4,
+                                   dropout=0.0,
+                                   eps=1e-6,
+                                   scale_factor=1.0,
+                                   )
+    print(causal_encoder)
