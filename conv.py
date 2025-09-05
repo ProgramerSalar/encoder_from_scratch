@@ -54,7 +54,7 @@ class CausalConv3d(nn.Module):
         # padding 
         """
             the calcultion of time_padding is realted to paper: https://arxiv.org/abs/1511.07122
-            we had understanding this padding in notebook section (question-8): https://github.com/ProgramerSalar/encoder_from_scratch/blob/main/Notebook/notebook.ipynb
+            we had understanding this padding in notebook section (question-7,8,9): https://github.com/ProgramerSalar/encoder_from_scratch/blob/main/Notebook/notebook.ipynb
         """
         self.time_padding = self.dilation * (self.time_kernel_size - 1)  # 1*(3-1)=>2
         self.height_padding = self.height_kernel_size // 2      # ≈1
