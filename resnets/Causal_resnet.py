@@ -56,6 +56,7 @@ class CausalResnet3d(nn.Module):
         self.act_fn = nn.SiLU()
 
         # [128] != [256]
+        self.in_out_not_matched = None
         output_channels = out_channels
         if in_channels != output_channels:
             self.in_out_not_matched = CausalConv3d(in_channels=in_channels,
@@ -66,6 +67,7 @@ class CausalResnet3d(nn.Module):
             
     def forward(self, x):
 
+        # feed-forward layer
         fd_tensor = x
 
         x = self.norm1(x)
@@ -84,16 +86,81 @@ class CausalResnet3d(nn.Module):
 
         return x 
     
+class CausalHeightWidth2x(nn.Module):
+
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 ):
+        
+        super().__init__()
+        
+        # frame/2, height/2, width/2
+        stride = (1, 2, 2)
+
+        self.conv = CausalConv3d(in_channels=in_channels,
+                                 out_channels=out_channels,
+                                 kernel_size=3,
+                                 stride=stride,
+                                 bias=True)
+
+    def forward(self, x): 
+        x = self.conv(x)
+        return x 
+
+
+class CausalFrame2x(nn.Module):
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int):
+        
+        super().__init__()
+
+        # frame/2, height, width
+        stride = (2, 1, 1)
+
+        self.conv = CausalConv3d(in_channels=in_channels,
+                                 out_channels=out_channels,
+                                 kernel_size=3,
+                                 stride=stride,
+                                 bias=True)
+        
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x 
+
+
+
+
+    
 
 
 if __name__ == "__main__":
 
-    causal_resnet3d = CausalResnet3d(in_channels=128,
-                                     out_channels=256,
-                                     norm_num_groups=2)
-    print(causal_resnet3d)
+    # causal_resnet3d = CausalResnet3d(in_channels=128,
+    #                                  out_channels=256,
+    #                                  norm_num_groups=2)
+    # print(causal_resnet3d)
 
+    # x = torch.randn(2, 128, 8, 256, 256)
+    # output = causal_resnet3d(x)
+
+    # print(output.shape)
+    # -------------------------------------------------------------------------
+
+    # causal_height_width = CausalHeightWidth2x(in_channels=128,
+    #                                           out_channels=128)
+    
+    # x = torch.randn(2, 128, 8, 256, 256)
+    # output = causal_height_width(x)
+    # print(output.shape) # [2, 3, 8, 128, 128]
+    # ----------------------------------------------------------------------------
+
+    causal_frame = CausalFrame2x(in_channels=128,
+                                 out_channels=128)
+    
     x = torch.randn(2, 128, 8, 256, 256)
-    output = causal_resnet3d(x)
 
+    output = causal_frame(x)
     print(output.shape)

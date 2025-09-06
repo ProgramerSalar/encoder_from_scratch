@@ -35,7 +35,10 @@ class CausalEncoder(nn.Module):
                  dropout: float = 0.0,
                  eps: float = 1e-6,
                  scale_factor: float = 1.0,
-                 norm_num_groups: int = 32):
+                 norm_num_groups: int = 32,
+                 add_height_width_2x: Tuple[bool, bool, bool, bool] = (True, True, True, False),
+                 add_frame_2x: Tuple[bool, bool, bool, bool] = (True, True, True, False)
+                 ):
         super().__init__()
 
         # [2, 3, 8, 256, 256] -> [2, 3, 128, 256, 256]
@@ -62,12 +65,20 @@ class CausalEncoder(nn.Module):
                             dropout=dropout,
                             eps=eps,
                             scale_factor=scale_factor,
-                            norm_num_groups=norm_num_groups)
+                            norm_num_groups=norm_num_groups,
+                            add_height_width_2x=add_height_width_2x[i],
+                            add_frame_2x=add_frame_2x[i])
             )
 
 
     def forward(self, 
                 sample: torch.FloatTensor) -> torch.FloatTensor:
+        
+        sample = self.conv_in(sample)
+        
+        for encoder_block_layer in self.encoder_block_layers:
+            sample = encoder_block_layer(sample)
+
         
 
         return sample
@@ -83,5 +94,10 @@ if __name__ == "__main__":
                                    dropout=0.0,
                                    eps=1e-6,
                                    scale_factor=1.0,
+                                   norm_num_groups=2
                                    )
     print(causal_encoder)
+
+    x = torch.randn(2, 3, 8, 256, 256)
+    output = causal_encoder(x)
+    print(output.shape)
