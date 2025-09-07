@@ -68,20 +68,20 @@ class CausalBlock3d(nn.Module):
 
 
         # # ## <---------- decrease the (height, width) dim ---------> 
-        # if self.add_height_width_2x:
-        #     self.height_width_dims = nn.ModuleList([
-        #         CausalHeightWidth2x(
-        #             in_channels=in_channels,
-        #             out_channels=out_channels
-        #         )
-        #     ])
+        if self.add_height_width_2x:
+            self.height_width_dims = nn.ModuleList([
+                CausalHeightWidth2x(
+                    in_channels=in_channels,
+                    out_channels=out_channels
+                )
+            ])
 
         # # ## <-------- decrease the (frame) dim -----------> ##
-        # if self.add_frame_2x:
-        #     self.frame_dims = nn.ModuleList([
-        #         CausalFrame2x(in_channels=in_channels,
-        #                     out_channels=out_channels)
-        #     ])
+        if self.add_frame_2x:
+            self.frame_dims = nn.ModuleList([
+                CausalFrame2x(in_channels=in_channels,
+                            out_channels=out_channels)
+            ])
 
 
 
@@ -106,18 +106,20 @@ class CausalBlock3d(nn.Module):
             
         
 
-        # if self.add_height_width_2x:
+        if self.add_height_width_2x:
             
-        #     for height_width_dim in self.height_width_dims:
-        #         # print(f"what is the input_shape [height_width_dim]: {x.shape}")
-        #         x = height_width_dim(x)
-        #         # print(f"what is the output_shape [height_width_dim]: {x.shape}")
+            for height_width_dim in self.height_width_dims:
+                # [2, 128, 8, 256, 256] -> [2, 128, 8, 128, 128]
+                # [2, 256, 8, 128, 128] -> [2, 256, 8, 64, 64]
+                # [2, 512, 8, 64, 64] -> [2, 512, 8, 32, 32]
+                x = height_width_dim(x)
 
-        # if self.add_frame_2x:
-        #     for frame_dim in self.frame_dims:
-        #         # print(f"what is the input_shape [frame_dim]: {x.shape}")
-        #         x = frame_dim(x)
-        #         # print(f"what is the output_shape [frame_dim]: {x.shape}")
+        if self.add_frame_2x:
+            for frame_dim in self.frame_dims:
+                # [2, 128, 8, 128, 128] -> [2, 128, 4, 128, 128]
+                # [2, 256, 4, 64, 64] -> [2, 256, 2, 64, 64]
+                # [2, 512, 2, 32, 32] -> [2, 512, 1, 32, 32]
+                x = frame_dim(x)
 
         return x 
     
