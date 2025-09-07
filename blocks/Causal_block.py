@@ -66,42 +66,58 @@ class CausalBlock3d(nn.Module):
                            norm_num_groups=norm_num_groups)
             )
 
-        ## <---------- decrease the (height, width) dim ---------> 
-        if self.add_height_width_2x:
-            self.height_width_dims = nn.ModuleList([
-                CausalHeightWidth2x(
-                    in_channels=in_channels,
-                    out_channels=out_channels
-                )
-            ])
 
-        ## <-------- decrease the (frame) dim -----------> ##
-        if self.add_frame_2x:
-            self.frame_dims = nn.ModuleList([
-                CausalFrame2x(in_channels=in_channels,
-                            out_channels=out_channels)
-            ])
+        # # ## <---------- decrease the (height, width) dim ---------> 
+        # if self.add_height_width_2x:
+        #     self.height_width_dims = nn.ModuleList([
+        #         CausalHeightWidth2x(
+        #             in_channels=in_channels,
+        #             out_channels=out_channels
+        #         )
+        #     ])
+
+        # # ## <-------- decrease the (frame) dim -----------> ##
+        # if self.add_frame_2x:
+        #     self.frame_dims = nn.ModuleList([
+        #         CausalFrame2x(in_channels=in_channels,
+        #                     out_channels=out_channels)
+        #     ])
 
 
 
     def forward(self, x):
         
         for block_layer in self.block_layers:
+
+            # [2, 128, 8, 256, 256] -> [2, 128, 8, 256, 256]
+            # [2, 128, 8, 256, 256] -> [2, 128, 8, 256, 256]
+
+            # [2, 128, 8, 256, 256] -> []
+
+            print(f"what is the input_shape in block_layer: {x.shape}")
             x = block_layer(x)
-        print(f"what is the shape of x: {x.shape}")
+            print(f"what is the output_shape in block_layer: {x.shape}")
+            
+        
 
-        if self.add_height_width_2x:
-            for height_width_dim in self.height_width_dims:
-                x = height_width_dim(x)
+        # if self.add_height_width_2x:
+            
+        #     for height_width_dim in self.height_width_dims:
+        #         # print(f"what is the input_shape [height_width_dim]: {x.shape}")
+        #         x = height_width_dim(x)
+        #         # print(f"what is the output_shape [height_width_dim]: {x.shape}")
 
-        if self.add_frame_2x:
-            for frame_dim in self.frame_dims:
-                x = frame_dim(x)
+        # if self.add_frame_2x:
+        #     for frame_dim in self.frame_dims:
+        #         # print(f"what is the input_shape [frame_dim]: {x.shape}")
+        #         x = frame_dim(x)
+        #         # print(f"what is the output_shape [frame_dim]: {x.shape}")
 
         return x 
     
 
 if __name__ == "__main__":
+    
 
     causal_block3d = CausalBlock3d(in_channels=128,
                                    out_channels=256,

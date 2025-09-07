@@ -74,10 +74,14 @@ class CausalEncoder(nn.Module):
     def forward(self, 
                 sample: torch.FloatTensor) -> torch.FloatTensor:
         
+        # [2, 3, 8, 256, 256] -> [2, 128, 8, 256, 256]
         sample = self.conv_in(sample)
         
+        
         for encoder_block_layer in self.encoder_block_layers:
+            # [2, 128, 8, 256, 256] -> [2, 128, 4, 128, 128]
             sample = encoder_block_layer(sample)
+            
 
         
 

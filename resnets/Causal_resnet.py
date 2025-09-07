@@ -28,6 +28,7 @@ class CausalResnet3d(nn.Module):
                  eps: float = 1e-5,
                  scale_factor: float = 1.0,
                  norm_num_groups: int = 32,
+                 use_in_shortcut=None
                  ):
         
         """ 
@@ -51,24 +52,42 @@ class CausalResnet3d(nn.Module):
                                      num_groups=norm_num_groups,
                                      eps=eps)
         self.dropout = nn.Dropout(dropout)
+        conv_2d_out_channels = out_channels
+        print(f"what is the channels to get conv_2d_out_channels: {conv_2d_out_channels}")
         self.conv2 = CausalConv3d(in_channels=out_channels,
                                   out_channels=out_channels)
         self.act_fn = nn.SiLU()
 
         # [128] != [256]
-        self.in_out_not_matched = None
-        output_channels = out_channels
-        if in_channels != output_channels:
-            self.in_out_not_matched = CausalConv3d(in_channels=in_channels,
-                                                   out_channels=output_channels,
-                                                   kernel_size=1,
-                                                   stride=1,
-                                                   bias=True)
+        
+        if use_in_shortcut is None:
+            self.use_in_shortcut = in_channels != conv_2d_out_channels
+
+        else:
+            self.use_in_shortcut
+
+        self.conv_shortcut = None
+        if self.use_in_shortcut:
+            self.conv_shortcut = CausalConv3d(in_channels=in_channels,
+                                              out_channels=conv_2d_out_channels,
+                                              kernel_size=1,
+                                              stride=1,
+                                              bias=True
+                                              )
+            
+        else:
+            self.use_in_shortcut = False
+
+        
+       
+
+        
             
     def forward(self, x):
 
         # feed-forward layer
-        fd_tensor = x
+        input_tensor = x
+       
 
         x = self.norm1(x)
         x = self.act_fn(x)
@@ -79,10 +98,14 @@ class CausalResnet3d(nn.Module):
         x = self.dropout(x)
         x = self.conv2(x)
 
-        if self.in_out_not_matched is not None:
-            fd_tensor = self.in_out_not_matched(fd_tensor)
+        if self.conv_shortcut is not None:
+            print(f"shape of input_tensor [conv_short=True]: {input_tensor.shape}")
+            input_tensor = self.conv_shortcut(input_tensor)
+            print(f"shape of output_tensor [conv_short=True]: {input_tensor.shape}")
 
-        x = (fd_tensor + x) / self.scale_factor
+            
+
+        x = (input_tensor + x) / self.scale_factor
 
         return x 
     
