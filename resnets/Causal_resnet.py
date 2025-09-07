@@ -53,13 +53,12 @@ class CausalResnet3d(nn.Module):
                                      eps=eps)
         self.dropout = nn.Dropout(dropout)
         conv_2d_out_channels = out_channels
-        print(f"what is the channels to get conv_2d_out_channels: {conv_2d_out_channels}")
         self.conv2 = CausalConv3d(in_channels=out_channels,
                                   out_channels=out_channels)
         self.act_fn = nn.SiLU()
 
+
         # [128] != [256]
-        
         if use_in_shortcut is None:
             self.use_in_shortcut = in_channels != conv_2d_out_channels
 
@@ -98,13 +97,19 @@ class CausalResnet3d(nn.Module):
         x = self.dropout(x)
         x = self.conv2(x)
 
+
+        # [128] != [256]
+        # [256] != [512]
         if self.conv_shortcut is not None:
-            print(f"shape of input_tensor [conv_short=True]: {input_tensor.shape}")
+            # [2, 128, 8, 256, 256] -> [2, 256, 8, 256, 256]
+            # [2, 256, 8, 256, 256] -> [2, 256, 8, 512, 512]
             input_tensor = self.conv_shortcut(input_tensor)
-            print(f"shape of output_tensor [conv_short=True]: {input_tensor.shape}")
 
-            
-
+        # [2, 128, 8, 256, 256] + [2, 128, 8, 256, 256]
+        # [2, 128, 8, 256, 256] + [2, 128, 8, 256, 256]
+        # [2, 256, 8, 256, 256] + [2, 256, 8, 256, 256]
+        # [2, 256, 8, 256, 256] + [2, 256, 8, 256, 256]
+        # [2, 512, 8, 256, 256] + [2, 512, 8, 256, 256]
         x = (input_tensor + x) / self.scale_factor
 
         return x 

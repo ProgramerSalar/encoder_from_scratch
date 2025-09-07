@@ -79,7 +79,10 @@ class CausalEncoder(nn.Module):
         
         
         for encoder_block_layer in self.encoder_block_layers:
-            # [2, 128, 8, 256, 256] -> [2, 128, 4, 128, 128]
+            # [2, 128, 8, 256, 256] -> [2, 128, 8, 256, 256]
+            # [2, 128, 8, 256, 256] -> [2, 256, 8, 256, 256]
+            # [2, 256, 8, 256, 256] -> [2, 512, 8, 256, 256]
+            # [2, 512, 8, 256, 256] -> [2, 512, 8, 256, 256]
             sample = encoder_block_layer(sample)
             
 
