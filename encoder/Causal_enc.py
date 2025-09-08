@@ -103,7 +103,7 @@ if __name__ == "__main__":
                                    scale_factor=1.0,
                                    norm_num_groups=2
                                    )
-    print(causal_encoder)
+    # print(causal_encoder)
 
     x = torch.randn(2, 3, 8, 256, 256)
     output = causal_encoder(x)

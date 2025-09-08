@@ -21,6 +21,7 @@ from typing import Union, Tuple
 from torch.nn import functional as F
 from einops import rearrange
 
+
 class CausalConv3d(nn.Module):
 
     """
@@ -70,6 +71,8 @@ class CausalConv3d(nn.Module):
                               padding=self.padding,         # default=0
                               dilation=self.dilation,       # default=0
                               **kwargs)
+        
+    
 
 
     def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
@@ -89,8 +92,8 @@ class CausalConv3d(nn.Module):
         x = F.pad(input=x,
                   pad=self.causal_time_padding,
                   mode=self.padding_mode)
-        
-        # [2, 3, 10, 258, 258] -> [batch_size, out_channels, frame, height, width]
+              
+        # [2, 3, 10, 258, 258] -> [2, 128, 8, 256, 256]
         x = self.conv(x)
         return x
     
@@ -134,25 +137,3 @@ class CausalGroupNorm(nn.Module):
 
 
 
-
-# <----- so this is testing section -----> #
-if __name__ ==  "__main__":
-    
-    causal_conv = CausalConv3d(in_channels=128,
-                               out_channels=256,
-                               kernel_size=1)
-    
-    print(causal_conv)
-
-    x = torch.randn(2, 128, 8, 256, 256)
-    output = causal_conv(x)
-    print(output.shape)
-    # --------------------------------------------
-
-    # x = torch.randn(2, 128, 8, 256, 256)
-    # causal_group_norm = CausalGroupNorm(in_channels=128,
-    #                                     num_groups=2,
-    #                                     )
-    
-    # output = causal_group_norm(x)
-    # print(output.shape)
