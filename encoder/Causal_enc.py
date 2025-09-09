@@ -18,8 +18,8 @@ import torch
 from torch import nn 
 from typing import List, Union, Tuple
 
-from conv import CausalConv3d
-from blocks.Causal_block import CausalBlock3d
+from conv import CausalConv3d, CausalGroupNorm
+from blocks.Causal_block import CausalBlock3d, CausalMiddleBlock3d
 
 
 
@@ -37,7 +37,8 @@ class CausalEncoder(nn.Module):
                  scale_factor: float = 1.0,
                  norm_num_groups: int = 32,
                  add_height_width_2x: Tuple[bool, bool, bool, bool] = (True, True, True, False),
-                 add_frame_2x: Tuple[bool, bool, bool, bool] = (True, True, True, False)
+                 add_frame_2x: Tuple[bool, bool, bool, bool] = (True, True, True, False),
+                 double_z: bool = True
                  ):
         super().__init__()
 
@@ -70,6 +71,27 @@ class CausalEncoder(nn.Module):
                             add_frame_2x=add_frame_2x[i])
             )
 
+        # mid block 
+        self.mid_block_layer = CausalMiddleBlock3d(in_channels=channels[-1],
+                                                   attention_head_dim=512,
+                                                   norm_num_groups=norm_num_groups,
+                                                   dropout=dropout,
+                                                   scale_factor=scale_factor,
+                                                   eps=eps)
+        
+        self.conv_norm_output = CausalGroupNorm(in_channels=channels[-1],
+                                                num_groups=norm_num_groups,
+                                                eps=eps)
+        
+        self.act_fn = nn.SiLU()
+        conv_output_channels = 2 *  out_channels if double_z else out_channels
+        self.conv_output = CausalConv3d(in_channels=channels[-1],
+                                        out_channels=conv_output_channels,
+                                        kernel_size=3,
+                                        stride=1)
+        
+        self.gradient_checkpointing = False
+
 
     def forward(self, 
                 sample: torch.FloatTensor) -> torch.FloatTensor:
@@ -84,10 +106,16 @@ class CausalEncoder(nn.Module):
             # [2, 256, 2, 64, 64] -> [2, 512, 1, 32, 32]
             # [2, 512, 1, 32, 32] -> [2, 512, 1, 32, 32]
             sample = encoder_block_layer(sample)
-            
 
         
+        # mid block 
+        sample = self.mid_block_layer(sample)
 
+        sample = self.conv_norm_output(sample)
+        sample = self.act_fn(sample)
+        sample = self.conv_output(sample)
+            
+        # [2, 3, 8, 256, 256] -> [2, 2*3, 1, 32, 32]
         return sample
     
 
@@ -103,7 +131,7 @@ if __name__ == "__main__":
                                    scale_factor=1.0,
                                    norm_num_groups=2
                                    )
-    # print(causal_encoder)
+    print(causal_encoder)
 
     x = torch.randn(2, 3, 8, 256, 256)
     output = causal_encoder(x)
